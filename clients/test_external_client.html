@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>External WebSocket Test Client</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            max-width: 900px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            background-color: #f0f2f5;
+        }
+        .header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .config { 
+            background: white; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 20px; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .config input { 
+            margin: 5px; 
+            padding: 10px; 
+            width: 350px; 
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .config button { 
+            margin: 5px; 
+            padding: 10px 20px; 
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .connect-btn { background: #2ecc71; color: white; }
+        .disconnect-btn { background: #e74c3c; color: white; }
+        .test-btn { background: #3498db; color: white; }
+        .clear-btn { background: #95a5a6; color: white; }
+        
+        #chat { 
+            height: 450px; 
+            border: 1px solid #ddd; 
+            overflow-y: scroll; 
+            padding: 15px; 
+            background: white; 
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 15px;
+        }
+        .message { 
+            margin: 8px 0; 
+            padding: 12px; 
+            border-radius: 8px; 
+            max-width: 85%;
+        }
+        .message-out { 
+            background: #e8f4f8; 
+            margin-left: auto; 
+            text-align: right;
+            border-left: 4px solid #3498db;
+        }
+        .message-in { 
+            background: #f0f8e8; 
+            border-left: 4px solid #2ecc71;
+        }
+        .message-system { 
+            background: #fff3cd; 
+            font-style: italic; 
+            text-align: center;
+            max-width: 100%;
+            border-left: 4px solid #ffc107;
+        }
+        .message-error { 
+            background: #f8d7da; 
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .agent-info {
+            display: inline-block;
+            padding: 2px 6px;
+            background: #2ecc71;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.75em;
+            margin-bottom: 5px;
+        }
+        
+        .input-area { 
+            display: flex; 
+            gap: 10px; 
+            margin-top: 10px; 
+        }
+        .input-area input { 
+            flex: 1; 
+            padding: 12px; 
+            border: 1px solid #ddd;
+            border-radius: 25px;
+            outline: none;
+        }
+        .input-area button {
+            padding: 12px 25px;
+            background: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .status-bar { 
+            background: white; 
+            padding: 15px; 
+            border-radius: 10px; 
+            margin: 10px 0; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-connected { color: #2ecc71; font-weight: bold; }
+        .status-disconnected { color: #e74c3c; font-weight: bold; }
+        
+        .test-scenarios {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 15px 0;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-scenarios h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .scenario-group {
+            margin: 15px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .scenario-group h4 {
+            margin: 0 0 10px 0;
+            color: #34495e;
+        }
+        .scenario-group button {
+            margin: 3px;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            background: #ecf0f1;
+            color: #2c3e50;
+            font-size: 0.9em;
+        }
+        .scenario-group button:hover {
+            background: #bdc3c7;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🌐 External WebSocket Test Client</h1>
+        <p>Connect to external WebSocket servers (like those on Render) and test agent interactions</p>
+    </div>
+    
+    <div class="config">
+        <h3>🔗 External Connection Settings</h3>
+        <div>
+            <label>External WebSocket URL:</label><br>
+            <input type="text" id="wsUrl" value="wss://your-friend-server.onrender.com/ws" placeholder="wss://example.onrender.com/ws">
+        </div>
+        <div>
+            <label>Your User ID:</label><br>
+            <input type="text" id="userId" value="external-tester" placeholder="your-user-id">
+        </div>
+        <div>
+            <label>Auth Token (if required):</label><br>
+            <input type="text" id="authToken" value="" placeholder="Bearer token or leave empty">
+        </div>
+        <div style="margin-top: 15px;">
+            <button class="connect-btn" onclick="connect()" id="connectBtn">🔌 Connect to External</button>
+            <button class="disconnect-btn" onclick="disconnect()" id="disconnectBtn" disabled>⏹️ Disconnect</button>
+            <button class="clear-btn" onclick="clearChat()">🗑️ Clear Chat</button>
+        </div>
+    </div>
+    
+    <div class="status-bar">
+        <div>
+            <strong>🌐 External Status:</strong> <span id="status" class="status-disconnected">Disconnected</span>
+        </div>
+        <div>
+            <strong>📨 Messages:</strong> <span id="messageCount">0</span> |
+            <strong>⏱️ Connected:</strong> <span id="connectionTime">--</span>
+        </div>
+    </div>
+    
+    <div id="chat"></div>
+    
+    <div class="input-area">
+        <input type="text" id="messageInput" placeholder="Send a message to the external server..." onkeypress="handleKeyPress(event)" disabled>
+        <button onclick="sendMessage()" id="sendBtn" disabled>📤 Send</button>
+    </div>
+    
+    <div class="test-scenarios">
+        <h3>🧪 Test Scenarios for Agent Responses</h3>
+        <p>These messages should trigger responses from POC backend agents if connected:</p>
+        
+        <div class="scenario-group">
+            <h4>💪 Fitness (Should trigger Helios agent)</h4>
+            <button onclick="sendTestMessage('I want to start working out, can you help me?')">Start Working Out</button>
+            <button onclick="sendTestMessage('What exercises should I do to build muscle?')">Build Muscle</button>
+            <button onclick="sendTestMessage('Plan me a weekly workout routine')">Weekly Routine</button>
+            <button onclick="sendTestMessage('How often should I go to the gym?')">Gym Frequency</button>
+            <button onclick="sendTestMessage('What is the best cardio exercise?')">Cardio Advice</button>
+        </div>
+        
+        <div class="scenario-group">
+            <h4>🥗 Nutrition (Should trigger Ceres agent)</h4>
+            <button onclick="sendTestMessage('What should I eat for breakfast?')">Breakfast Ideas</button>
+            <button onclick="sendTestMessage('I need a high protein meal plan')">Protein Meal Plan</button>
+            <button onclick="sendTestMessage('What foods help with weight loss?')">Weight Loss Foods</button>
+            <button onclick="sendTestMessage('Plan me a healthy dinner')">Healthy Dinner</button>
+            <button onclick="sendTestMessage('I am vegetarian, what proteins can I eat?')">Vegetarian Protein</button>
+        </div>
+        
+        <div class="scenario-group">
+            <h4>🤖 General (Should trigger General agent)</h4>
+            <button onclick="sendTestMessage('Hello! How are you today?')">Greeting</button>
+            <button onclick="sendTestMessage('What can you help me with?')">Capabilities</button>
+            <button onclick="sendTestMessage('Tell me a joke')">Request Joke</button>
+            <button onclick="sendTestMessage('What is the weather like?')">Weather Question</button>
+            <button onclick="sendTestMessage('Can you save a note for me?')">Save Note</button>
+        </div>
+        
+        <div class="scenario-group">
+            <h4>🧪 Advanced Test Cases</h4>
+            <button onclick="sendTestMessage('I want to lose weight, need both diet and exercise advice')">Combined Request</button>
+            <button onclick="sendTestMessage('What agents do you have available?')">Agent Discovery</button>
+            <button onclick="sendTestMessage('This is a test message from external client')">Connection Test</button>
+            <button onclick="sendPingMessage()">Ping Test</button>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+        let connectionStartTime = null;
+        let connectionTimer = null;
+        
+        function connect() {
+            const url = document.getElementById('wsUrl').value;
+            const userId = document.getElementById('userId').value;
+            const authToken = document.getElementById('authToken').value;
+            
+            if (!url) {
+                alert('Please enter a WebSocket URL');
+                return;
+            }
+            
+            // Build final URL
+            let finalUrl = url;
+            if (userId) {
+                if (url.includes('{user_id}')) {
+                    finalUrl = url.replace('{user_id}', userId);
+                } else if (!url.endsWith('/ws')) {
+                    finalUrl = url.endsWith('/') ? url + userId : url + '/' + userId;
+                }
+            }
+            
+            try {
+                // Create WebSocket connection
+                ws = new WebSocket(finalUrl);
+                
+                ws.onopen = function() {
+                    updateStatus('Connected', 'connected');
+                    enableControls(true);
+                    connectionStartTime = new Date();
+                    startConnectionTimer();
+                    logMessage('system', '🟢 Connected to external server: ' + finalUrl);
+                    
+                    // Send authentication if token provided
+                    if (authToken) {
+                        sendAuthMessage(authToken);
+                    }
+                    
+                    // Send initial greeting
+                    setTimeout(() => {
+                        sendTestMessage('Hello! I\'m testing the connection from an external client.');
+                    }, 1000);
+                };
+                
+                ws.onmessage = function(event) {
+                    messageCount++;
+                    updateMessageCount();
+                    
+                    try {
+                        const data = JSON.parse(event.data);
+                        handleIncomingMessage(data);
+                    } catch (e) {
+                        // Handle plain text messages
+                        logMessage('in', event.data);
+                    }
+                };
+                
+                ws.onclose = function(event) {
+                    updateStatus('Disconnected', 'disconnected');
+                    enableControls(false);
+                    stopConnectionTimer();
+                    logMessage('system', `🔴 Connection closed (${event.code}: ${event.reason || 'No reason provided'})`);
+                };
+                
+                ws.onerror = function(error) {
+                    updateStatus('Error', 'disconnected');
+                    enableControls(false);
+                    logMessage('error', '❌ Connection error: ' + error);
+                };
+                
+            } catch (error) {
+                alert('Failed to connect: ' + error.message);
+            }
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+        }
+        
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                const messageObj = {
+                    type: 'message',
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    from: 'external-client'
+                };
+                
+                ws.send(JSON.stringify(messageObj));
+                logMessage('out', message);
+                input.value = '';
+            }
+        }
+        
+        function sendTestMessage(message) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const messageObj = {
+                    type: 'message',
+                    message: message,
+                    timestamp: new Date().toISOString(),
+                    from: 'external-test-client'
+                };
+                
+                ws.send(JSON.stringify(messageObj));
+                logMessage('out', message);
+            } else {
+                alert('Please connect to external server first!');
+            }
+        }
+        
+        function sendPingMessage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const pingObj = {
+                    type: 'ping',
+                    timestamp: new Date().toISOString(),
+                    from: 'external-client'
+                };
+                
+                ws.send(JSON.stringify(pingObj));
+                logMessage('out', '🏓 Ping sent');
+            }
+        }
+        
+        function sendAuthMessage(token) {
+            const authObj = {
+                type: 'auth',
+                token: token,
+                timestamp: new Date().toISOString()
+            };
+            
+            ws.send(JSON.stringify(authObj));
+            logMessage('system', '🔐 Authentication sent');
+        }
+        
+        function handleIncomingMessage(data) {
+            const type = data.type || 'message';
+            const agent = data.agent || data.sender || 'External Server';
+            const content = data.message || data.content || '';
+            
+            switch (type) {
+                case 'message':
+                case 'agent_response':
+                    logMessage('in', content, agent);
+                    break;
+                    
+                case 'system':
+                    logMessage('system', content);
+                    break;
+                    
+                case 'typing':
+                    logMessage('system', `✏️ ${agent} is typing...`);
+                    break;
+                    
+                case 'pong':
+                    logMessage('system', '🏓 Pong received');
+                    break;
+                    
+                case 'broadcast':
+                    logMessage('in', `📢 Broadcast: ${content}`, agent);
+                    break;
+                    
+                default:
+                    logMessage('in', JSON.stringify(data, null, 2));
+            }
+        }
+        
+        function logMessage(type, content, agent = null) {
+            const chat = document.getElementById('chat');
+            const div = document.createElement('div');
+            
+            const timestamp = new Date().toLocaleTimeString();
+            let formattedContent = content;
+            
+            if (agent && type === 'in') {
+                formattedContent = `<div class="agent-info">${agent}</div>${content}`;
+            }
+            
+            div.innerHTML = `<strong>${timestamp}</strong><br>${formattedContent}`;
+            div.className = `message message-${type}`;
+            
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
+        }
+        
+        function updateStatus(status, className) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = status;
+            statusElement.className = `status-${className}`;
+        }
+        
+        function updateMessageCount() {
+            document.getElementById('messageCount').textContent = messageCount;
+        }
+        
+        function enableControls(enabled) {
+            document.getElementById('messageInput').disabled = !enabled;
+            document.getElementById('sendBtn').disabled = !enabled;
+            document.getElementById('connectBtn').disabled = enabled;
+            document.getElementById('disconnectBtn').disabled = !enabled;
+        }
+        
+        function clearChat() {
+            document.getElementById('chat').innerHTML = '';
+            messageCount = 0;
+            updateMessageCount();
+        }
+        
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        }
+        
+        function startConnectionTimer() {
+            connectionTimer = setInterval(() => {
+                if (connectionStartTime) {
+                    const now = new Date();
+                    const diff = Math.floor((now - connectionStartTime) / 1000);
+                    const minutes = Math.floor(diff / 60);
+                    const seconds = diff % 60;
+                    document.getElementById('connectionTime').textContent = 
+                        `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }, 1000);
+        }
+        
+        function stopConnectionTimer() {
+            if (connectionTimer) {
+                clearInterval(connectionTimer);
+                connectionTimer = null;
+            }
+            document.getElementById('connectionTime').textContent = '--';
+            connectionStartTime = null;
+        }
+        
+        // Auto-populate example URLs based on common patterns
+        window.onload = function() {
+            // You can update this with actual URLs you want to test
+            const exampleUrls = [
+                'wss://your-friend-server.onrender.com/ws',
+                'wss://example-app.onrender.com/ws',
+                'ws://localhost:8001/ws',
+            ];
+            
+            // Set a default for testing
+            document.getElementById('wsUrl').value = exampleUrls[0];
+        };
+    </script>
+</body>
+</html>
