@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 import json
 import logging
+from langsmith import traceable
 from .models import Message, HealthData, NutritionData
 from .llm_service import LLMService
 from .file_service import FileService
@@ -21,19 +22,21 @@ class BaseAgent(ABC):
         """Register available tools for this agent"""
         pass
     
+    @traceable(name="agent_process_message")
     async def process_message(self, user_id: str, message: str, conversation_history: List[Message]) -> str:
-        """Process a message and return response"""
+        """Process a message and return response with LangSmith tracing"""
         try:
             # Build conversation context
             context = self._build_context(conversation_history)
             
-            # Get LLM response
+            # Get LLM response with tracing
             response = await self.llm_service.get_completion(
                 messages=[
                     {"role": "user", "content": f"Context: {context}\n\nUser message: {message}"}
                 ],
                 system_prompt=self.system_prompt,
-                temperature=0.7
+                temperature=0.7,
+                run_name=f"{self.name.lower()}_agent_response"
             )
             
             # Log interaction
@@ -97,8 +100,9 @@ class HeliosAgent(BaseAgent):
             "get_user_fitness_data": self.get_user_fitness_data
         }
     
+    @traceable(name="save_workout_tool")
     async def save_workout(self, user_id: str, workout_data: Dict[str, Any]) -> str:
-        """Save workout data for user"""
+        """Save workout data for user with tracing"""
         try:
             existing_data = await self.file_service.load_json(user_id, "helios_data.json")
             if not existing_data:
@@ -113,8 +117,9 @@ class HeliosAgent(BaseAgent):
         except Exception as e:
             return f"Error saving workout: {str(e)}"
     
+    @traceable(name="get_workout_history_tool")
     async def get_workout_history(self, user_id: str) -> str:
-        """Get user's workout history"""
+        """Get user's workout history with tracing"""
         try:
             data = await self.file_service.load_json(user_id, "helios_data.json")
             if not data or not data.get("workouts"):
@@ -133,8 +138,9 @@ class HeliosAgent(BaseAgent):
         except Exception as e:
             return f"Error retrieving workout history: {str(e)}"
     
+    @traceable(name="set_fitness_goal_tool")
     async def set_fitness_goal(self, user_id: str, goal: str) -> str:
-        """Set fitness goal for user"""
+        """Set fitness goal for user with tracing"""
         try:
             existing_data = await self.file_service.load_json(user_id, "helios_data.json")
             if not existing_data:
@@ -228,8 +234,9 @@ class CeresAgent(BaseAgent):
         except Exception as e:
             return f"Error retrieving meal history: {str(e)}"
     
+    @traceable(name="set_dietary_preference_tool")
     async def set_dietary_preference(self, user_id: str, preference: str) -> str:
-        """Set dietary preference for user"""
+        """Set dietary preference for user with tracing"""
         try:
             existing_data = await self.file_service.load_json(user_id, "ceres_data.json")
             if not existing_data:
@@ -244,8 +251,9 @@ class CeresAgent(BaseAgent):
         except Exception as e:
             return f"Error setting dietary preference: {str(e)}"
     
+    @traceable(name="get_user_nutrition_data_tool")
     async def get_user_nutrition_data(self, user_id: str) -> Dict[str, Any]:
-        """Get all nutrition data for user"""
+        """Get all nutrition data for user with tracing"""
         data = await self.file_service.load_json(user_id, "ceres_data.json")
         return data or {"meals": [], "dietary_preferences": [], "allergies": [], "nutrition_goals": {}}
 
@@ -281,8 +289,9 @@ class GeneralAgent(BaseAgent):
             "get_notes": self.get_notes
         }
     
+    @traceable(name="save_note_tool")
     async def save_note(self, user_id: str, note: str) -> str:
-        """Save a note for the user"""
+        """Save a note for the user with tracing"""
         try:
             await self.file_service.log_to_file(user_id, "notes.md", f"Note: {note}")
             return f"📝 Note saved! I'll remember that for you."
@@ -290,8 +299,9 @@ class GeneralAgent(BaseAgent):
         except Exception as e:
             return f"Error saving note: {str(e)}"
     
+    @traceable(name="get_notes_tool")
     async def get_notes(self, user_id: str) -> str:
-        """Get user's notes"""
+        """Get user's notes with tracing"""
         try:
             notes = await self.file_service.read_file(user_id, "notes.md")
             if not notes:

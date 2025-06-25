@@ -3,6 +3,8 @@ import os
 import json
 import logging
 from typing import List, Dict, Any, Optional
+from langsmith import traceable, Client
+from langsmith.wrappers import wrap_openai
 from .models import Message, AgentIntent
 
 logger = logging.getLogger(__name__)
@@ -10,16 +12,28 @@ logger = logging.getLogger(__name__)
 class LLMService:
     def __init__(self):
         self.client = openai.AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
+        # Wrap OpenAI client with LangSmith tracing if enabled
+        if os.getenv("LANGCHAIN_TRACING_V2") == "true":
+            self.client = wrap_openai(self.client)
+            self.langsmith_client = Client()
+            logger.info("LangSmith tracing enabled for LLM service")
+        else:
+            self.langsmith_client = None
+            logger.info("LangSmith tracing disabled")
+            
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     
+    @traceable(name="llm_completion")
     async def get_completion(
         self, 
         messages: List[Dict[str, str]], 
         system_prompt: Optional[str] = None,
         temperature: float = 0.7,
-        max_tokens: int = 1000
+        max_tokens: int = 1000,
+        run_name: Optional[str] = None
     ) -> str:
-        """Get completion from OpenAI"""
+        """Get completion from OpenAI with LangSmith tracing"""
         try:
             # Prepare messages
             formatted_messages = []
@@ -29,27 +43,53 @@ class LLMService:
             
             formatted_messages.extend(messages)
             
-            # Get completion
-            response = await self.client.chat.completions.create(
-                model=self.model,
-                messages=formatted_messages,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
+            # Get completion with optional run name for tracing
+            completion_kwargs = {
+                "model": self.model,
+                "messages": formatted_messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens
+            }
             
-            return response.choices[0].message.content.strip()
+            # Add metadata for LangSmith if available
+            if self.langsmith_client and run_name:
+                completion_kwargs["extra_headers"] = {"run_name": run_name}
+            
+            response = await self.client.chat.completions.create(**completion_kwargs)
+            
+            result = response.choices[0].message.content.strip()
+            
+            # Log to LangSmith if enabled
+            if self.langsmith_client:
+                logger.debug(f"LLM completion traced: {len(result)} characters")
+            
+            return result
             
         except Exception as e:
             logger.error(f"LLM completion error: {e}")
+            
+            # Log error to LangSmith if enabled
+            if self.langsmith_client:
+                try:
+                    self.langsmith_client.create_run(
+                        name="llm_completion_error",
+                        run_type="llm",
+                        inputs={"messages": messages, "system_prompt": system_prompt},
+                        error=str(e)
+                    )
+                except Exception as trace_error:
+                    logger.warning(f"Failed to trace error to LangSmith: {trace_error}")
+            
             return f"I apologize, but I'm having trouble processing your request right now. Error: {str(e)}"
     
+    @traceable(name="intent_classification")
     async def classify_intent(
         self, 
         message: str, 
         conversation_history: List[Message],
         available_agents: List[str]
     ) -> AgentIntent:
-        """Classify user intent and route to appropriate agent"""
+        """Classify user intent and route to appropriate agent with LangSmith tracing"""
         
         # Build context from conversation history
         history_context = ""
@@ -92,7 +132,8 @@ class LLMService:
                 messages=[{"role": "user", "content": message}],
                 system_prompt=classification_prompt,
                 temperature=0.3,
-                max_tokens=200
+                max_tokens=200,
+                run_name="intent_classification"
             )
             
             # Parse JSON response

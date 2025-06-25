@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 from typing import Dict, List
 from dotenv import load_dotenv
+from langsmith import traceable
 
 # Load environment variables
 load_dotenv()
@@ -101,8 +102,9 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+@traceable(name="process_external_message")
 async def process_external_message(message_content: str, sender: str, message_type: str):
-    """Process messages from external WebSocket through agents"""
+    """Process messages from external WebSocket through agents with tracing"""
     try:
         # Create virtual user session for external messages
         external_user_id = "external-socket-user"
@@ -281,8 +283,9 @@ async def get_user_file(user_id: str, filename: str):
 
 # WebSocket endpoint
 @app.websocket("/ws/{user_id}")
+@traceable(name="websocket_endpoint")
 async def websocket_endpoint(websocket: WebSocket, user_id: str):
-    """Main WebSocket endpoint for real-time communication"""
+    """Main WebSocket endpoint for real-time communication with tracing"""
     await manager.connect(websocket, user_id)
     
     # Initialize user session

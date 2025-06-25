@@ -1,5 +1,6 @@
 from typing import List
 import logging
+from langsmith import traceable
 from .models import Message, AgentIntent
 from .llm_service import LLMService
 
@@ -12,23 +13,27 @@ class MessageRouter:
         self.llm_service = llm_service
         self.available_agents = ["helios", "ceres", "general"]
     
+    @traceable(name="route_message")
     async def route_message(self, message: str, conversation_history: List[Message]) -> AgentIntent:
-        """Analyze message and determine which agent should handle it"""
+        """Analyze message and determine which agent should handle it with LangSmith tracing"""
         
         # Quick keyword-based routing for efficiency
         quick_route = self._quick_route(message)
         if quick_route:
+            logger.info(f"Quick route successful: {quick_route.agent} (confidence: {quick_route.confidence})")
             return quick_route
         
         # Use LLM for complex routing
+        logger.info("Using LLM classification for routing")
         return await self.llm_service.classify_intent(
             message, 
             conversation_history, 
             self.available_agents
         )
     
+    @traceable(name="quick_route")
     def _quick_route(self, message: str) -> AgentIntent:
-        """Fast keyword-based routing for common patterns"""
+        """Fast keyword-based routing for common patterns with tracing"""
         message_lower = message.lower()
         
         # Fitness keywords
