@@ -51,4 +51,7 @@ logs/
 # Test outputs
 *.jsonl
 monitor_log_*.jsonl
-results.json 
+results.json
+
+# Claude Code instructions (keep local only)
+CLAUDE.md 
